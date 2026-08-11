@@ -9,7 +9,7 @@ const styles: Record<NonNullable<Props['variant']>, string> = {
   primary:
     'bg-brand text-white hover:bg-teal-800 shadow-sm shadow-teal-900/10',
   secondary:
-    'bg-white text-ink border border-line hover:bg-paper',
+    'bg-surface text-ink border border-line hover:bg-paper',
   ghost: 'bg-transparent text-muted hover:text-ink hover:bg-white/60',
   danger: 'bg-red-50 text-danger border border-red-100 hover:bg-red-100',
 };

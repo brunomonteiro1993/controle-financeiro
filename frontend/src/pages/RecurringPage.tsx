@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
-import {
-  currentYearMonth,
-  formatBRL,
-  formatDateBR,
-  todayISO,
-} from '../lib/format';
-import type { IncomeEntry, IncomeSource } from '../types';
-import { INCOME_SOURCE_LABELS } from '../types';
-import { MonthPicker } from '../components/ui/MonthPicker';
+import { currentYearMonth, formatBRL } from '../lib/format';
+import type { Category, RecurringExpense } from '../types';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
@@ -17,68 +10,78 @@ import { Button } from '../components/ui/Button';
 type FormState = {
   description: string;
   amount: string;
-  incomeDate: string;
-  source: IncomeSource;
+  dayOfMonth: string;
+  categoryId: string;
+  startYearMonth: string;
+  endYearMonth: string;
   notes: string;
+  active: boolean;
 };
 
 const emptyForm = (): FormState => ({
   description: '',
   amount: '',
-  incomeDate: todayISO(),
-  source: 'salary',
+  dayOfMonth: '1',
+  categoryId: '',
+  startYearMonth: currentYearMonth(),
+  endYearMonth: '',
   notes: '',
+  active: true,
 });
 
-export function IncomePage() {
-  const [yearMonth, setYearMonth] = useState(currentYearMonth());
-  const [entries, setEntries] = useState<IncomeEntry[]>([]);
-  const [total, setTotal] = useState(0);
+export function RecurringPage() {
+  const [items, setItems] = useState<RecurringExpense[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await apiFetch<{ entries: IncomeEntry[]; total: number }>(
-        `/api/incomes?yearMonth=${yearMonth}`
-      );
-      setEntries(data.entries);
-      setTotal(data.total);
+      const [recRes, catRes] = await Promise.all([
+        apiFetch<{ recurring: RecurringExpense[] }>('/api/recurring'),
+        apiFetch<{ categories: Category[] }>('/api/categories'),
+      ]);
+      setItems(recRes.recurring);
+      setCategories(catRes.categories);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar.');
     } finally {
       setLoading(false);
     }
-  }, [yearMonth]);
+  }, []);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
   function startCreate() {
-    const today = todayISO();
     setEditingId(null);
     setForm({
       ...emptyForm(),
-      incomeDate: today.startsWith(yearMonth) ? today : `${yearMonth}-01`,
+      categoryId: categories[0]?.id ?? '',
     });
     setShowForm(true);
   }
 
-  function startEdit(entry: IncomeEntry) {
-    setEditingId(entry.id);
+  function startEdit(item: RecurringExpense) {
+    setEditingId(item.id);
     setForm({
-      description: entry.description,
-      amount: String(entry.amount),
-      incomeDate: entry.incomeDate,
-      source: entry.source,
-      notes: entry.notes ?? '',
+      description: item.description,
+      amount: String(item.amount),
+      dayOfMonth: String(item.dayOfMonth),
+      categoryId: item.categoryId ?? '',
+      startYearMonth: item.startYearMonth,
+      endYearMonth: item.endYearMonth ?? '',
+      notes: item.notes ?? '',
+      active: item.active,
     });
     setShowForm(true);
   }
@@ -89,23 +92,27 @@ export function IncomePage() {
     setError('');
     try {
       const amount = Number(form.amount.replace(',', '.'));
+      const dayOfMonth = Number(form.dayOfMonth);
       if (Number.isNaN(amount) || amount <= 0) {
-        throw new Error('Informe um valor maior que zero.');
+        throw new Error('Informe um valor válido.');
       }
       const payload = {
         description: form.description.trim(),
         amount,
-        incomeDate: form.incomeDate,
-        source: form.source,
+        dayOfMonth,
+        categoryId: form.categoryId || null,
+        startYearMonth: form.startYearMonth,
+        endYearMonth: form.endYearMonth || null,
         notes: form.notes.trim() || null,
+        active: form.active,
       };
       if (editingId) {
-        await apiFetch(`/api/incomes/${editingId}`, {
+        await apiFetch(`/api/recurring/${editingId}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        await apiFetch('/api/incomes', {
+        await apiFetch('/api/recurring', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -120,12 +127,33 @@ export function IncomePage() {
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm('Excluir esta receita?')) return;
+    if (!window.confirm('Excluir esta recorrência?')) return;
     try {
-      await apiFetch(`/api/incomes/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/recurring/${id}`, { method: 'DELETE' });
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao excluir.');
+    }
+  }
+
+  async function applyCurrentMonth() {
+    setApplying(true);
+    setMessage('');
+    setError('');
+    try {
+      const res = await apiFetch<{ created: number }>('/api/recurring/apply', {
+        method: 'POST',
+        body: JSON.stringify({ yearMonth: currentYearMonth() }),
+      });
+      setMessage(
+        res.created > 0
+          ? `${res.created} gasto(s) lançado(s) neste mês.`
+          : 'Nenhum lançamento novo (já estavam gerados).'
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao aplicar.');
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -134,17 +162,24 @@ export function IncomePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">
-            Receitas
+            Gastos recorrentes
           </h1>
           <p className="mt-1 text-muted">
-            Salário, freelance, 13º, vendas e outras entradas do mês.
+            Aluguel, Netflix e outros — gerados automaticamente no mês.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <MonthPicker yearMonth={yearMonth} onChange={setYearMonth} />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={applying}
+            onClick={() => void applyCurrentMonth()}
+          >
+            {applying ? 'Aplicando…' : 'Lançar no mês atual'}
+          </Button>
           <Button type="button" onClick={startCreate}>
             <Plus size={16} />
-            Nova receita
+            Nova recorrência
           </Button>
         </div>
       </div>
@@ -154,13 +189,11 @@ export function IncomePage() {
           {error}
         </p>
       ) : null}
-
-      <div className="rounded-2xl border border-line bg-surface/90 px-5 py-4 shadow-sm">
-        <p className="text-sm text-muted">Total do mês</p>
-        <p className="font-display text-2xl font-semibold text-ok">
-          {formatBRL(total)}
+      {message ? (
+        <p className="rounded-xl bg-teal-50 px-4 py-3 text-sm text-ok dark:bg-teal-950/40">
+          {message}
         </p>
-      </div>
+      ) : null}
 
       {showForm ? (
         <form
@@ -168,7 +201,7 @@ export function IncomePage() {
           className="grid gap-4 rounded-3xl border border-line bg-surface/90 p-6 shadow-sm md:grid-cols-2"
         >
           <h2 className="font-semibold md:col-span-2">
-            {editingId ? 'Editar receita' : 'Nova receita'}
+            {editingId ? 'Editar recorrência' : 'Nova recorrência'}
           </h2>
           <Input
             label="Descrição"
@@ -190,37 +223,55 @@ export function IncomePage() {
             }
           />
           <Input
-            label="Data"
-            type="date"
+            label="Dia do mês (1–28)"
+            type="number"
+            min="1"
+            max="28"
             required
-            value={form.incomeDate}
+            value={form.dayOfMonth}
             onChange={(e) =>
-              setForm((prev) => ({ ...prev, incomeDate: e.target.value }))
+              setForm((prev) => ({ ...prev, dayOfMonth: e.target.value }))
             }
           />
           <Select
-            label="Fonte"
-            value={form.source}
+            label="Categoria"
+            value={form.categoryId}
             onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                source: e.target.value as IncomeSource,
-              }))
+              setForm((prev) => ({ ...prev, categoryId: e.target.value }))
             }
-            options={Object.entries(INCOME_SOURCE_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            }))}
+            options={[
+              { value: '', label: 'Sem categoria' },
+              ...categories.map((c) => ({ value: c.id, label: c.name })),
+            ]}
           />
-          <div className="md:col-span-2">
-            <Input
-              label="Observações"
-              value={form.notes}
+          <Input
+            label="Início (YYYY-MM)"
+            required
+            pattern="\d{4}-\d{2}"
+            value={form.startYearMonth}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, startYearMonth: e.target.value }))
+            }
+          />
+          <Input
+            label="Fim (opcional)"
+            pattern="\d{4}-\d{2}"
+            placeholder="YYYY-MM"
+            value={form.endYearMonth}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, endYearMonth: e.target.value }))
+            }
+          />
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.active}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, notes: e.target.value }))
+                setForm((prev) => ({ ...prev, active: e.target.checked }))
               }
             />
-          </div>
+            Ativa
+          </label>
           <div className="flex gap-2 md:col-span-2">
             <Button type="submit" disabled={saving}>
               {saving ? 'Salvando…' : editingId ? 'Atualizar' : 'Adicionar'}
@@ -237,41 +288,39 @@ export function IncomePage() {
       ) : null}
 
       <section className="rounded-3xl border border-line bg-surface/90 shadow-sm">
-        <div className="border-b border-line px-5 py-4">
-          <h2 className="font-semibold">Lançamentos</h2>
-        </div>
         {loading ? (
           <p className="p-5 text-sm text-muted">Carregando…</p>
-        ) : entries.length === 0 ? (
-          <div className="space-y-3 p-5">
-            <p className="text-sm text-muted">Nenhuma receita neste mês.</p>
-            <Button type="button" onClick={startCreate}>
-              Adicionar primeira receita
-            </Button>
-          </div>
+        ) : items.length === 0 ? (
+          <p className="p-5 text-sm text-muted">Nenhuma recorrência cadastrada.</p>
         ) : (
           <ul className="divide-y divide-line">
-            {entries.map((entry) => (
+            {items.map((item) => (
               <li
-                key={entry.id}
+                key={item.id}
                 className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
               >
                 <div>
-                  <p className="font-medium">{entry.description}</p>
+                  <p className="font-medium">
+                    {item.description}{' '}
+                    {!item.active ? (
+                      <span className="text-xs text-muted">(pausada)</span>
+                    ) : null}
+                  </p>
                   <p className="text-xs text-muted">
-                    {formatDateBR(entry.incomeDate)} ·{' '}
-                    {INCOME_SOURCE_LABELS[entry.source]}
+                    Dia {item.dayOfMonth} ·{' '}
+                    {item.category?.name ?? 'Sem categoria'} · desde{' '}
+                    {item.startYearMonth}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-ok">
-                    +{formatBRL(entry.amount)}
+                  <span className="font-semibold text-accent">
+                    {formatBRL(item.amount)}
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     className="!px-2 !py-2"
-                    onClick={() => startEdit(entry)}
+                    onClick={() => startEdit(item)}
                   >
                     <Pencil size={16} />
                   </Button>
@@ -279,7 +328,7 @@ export function IncomePage() {
                     type="button"
                     variant="ghost"
                     className="!px-2 !py-2"
-                    onClick={() => void onDelete(entry.id)}
+                    onClick={() => void onDelete(item.id)}
                   >
                     <Trash2 size={16} />
                   </Button>

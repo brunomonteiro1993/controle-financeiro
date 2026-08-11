@@ -26,16 +26,25 @@ export function DashboardPage() {
     setLoading(true);
     setError('');
 
-    apiFetch<Summary>(`/api/dashboard/summary?yearMonth=${yearMonth}`)
-      .then((data) => {
+    (async () => {
+      try {
+        await apiFetch('/api/recurring/apply', {
+          method: 'POST',
+          body: JSON.stringify({ yearMonth }),
+        }).catch(() => undefined);
+
+        const data = await apiFetch<Summary>(
+          `/api/dashboard/summary?yearMonth=${yearMonth}`
+        );
         if (active) setSummary(data);
-      })
-      .catch((err: Error) => {
-        if (active) setError(err.message);
-      })
-      .finally(() => {
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Falha ao carregar.');
+        }
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       active = false;
@@ -75,7 +84,11 @@ export function DashboardPage() {
             <StatCard
               title="Renda do mês"
               value={formatBRL(summary.income)}
-              hint={summary.income === 0 ? 'Defina sua renda em Renda' : 'Valor informado'}
+              hint={
+                summary.income === 0
+                  ? 'Cadastre receitas em Receitas'
+                  : `${summary.incomeCount || 0} receita(s)`
+              }
               icon={<Wallet size={18} />}
             />
             <StatCard
@@ -94,7 +107,7 @@ export function DashboardPage() {
             />
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-line bg-white/90 p-5 shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-line bg-surface/90 p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-semibold">Uso da renda</h2>
               <span className="text-sm text-muted">{summary.percentUsed}%</span>
@@ -113,8 +126,27 @@ export function DashboardPage() {
             </div>
           </section>
 
+          {summary.budgetAlerts && summary.budgetAlerts.length > 0 ? (
+            <section className="space-y-2 rounded-2xl border border-accent/30 bg-orange-50/80 p-4 dark:bg-orange-950/30">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold text-accent">Alertas de meta</h2>
+                <Link to="/metas" className="text-sm font-semibold text-brand">
+                  Ver metas
+                </Link>
+              </div>
+              {summary.budgetAlerts.map((a) => (
+                <p key={a.id} className="text-sm">
+                  <span className="font-medium">{a.categoryName}</span> —{' '}
+                  {a.exceeded
+                    ? `estourou (${formatBRL(a.spent)} / ${formatBRL(a.amount)})`
+                    : `${a.percentUsed}% da meta`}
+                </p>
+              ))}
+            </section>
+          ) : null}
+
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-2xl border border-line bg-white/90 p-5 shadow-sm">
+            <section className="rounded-2xl border border-line bg-surface/90 p-5 shadow-sm">
               <h2 className="mb-4 font-semibold">Gastos por categoria</h2>
               {summary.byCategory.length === 0 ? (
                 <p className="text-sm text-muted">Nenhum gasto neste mês.</p>
@@ -160,7 +192,7 @@ export function DashboardPage() {
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-line bg-white/90 p-5 shadow-sm">
+            <section className="rounded-2xl border border-line bg-surface/90 p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="font-semibold">Últimos gastos</h2>
                 <Link to="/gastos">

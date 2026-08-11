@@ -12,7 +12,7 @@ export function Select({ label, options, className = '', id, ...props }: Props) 
       <span className="font-medium text-ink">{label}</span>
       <select
         id={selectId}
-        className={`rounded-xl border border-line bg-white px-3.5 py-2.5 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 ${className}`}
+        className={`rounded-xl border border-line bg-surface px-3.5 py-2.5 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 ${className}`}
         {...props}
       >
         {options.map((opt) => (
