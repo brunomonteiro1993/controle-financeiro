@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { PasswordInput } from '../components/ui/PasswordInput';
+import { PasswordHints } from '../components/ui/PasswordHints';
+import { passwordsMatch } from '../lib/password';
 
 export function ResetPasswordPage() {
   const { session, loading, isPasswordRecovery, updatePassword, clearPasswordRecovery } =
@@ -12,6 +14,12 @@ export function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const match = useMemo(
+    () => passwordsMatch(password, confirm),
+    [password, confirm]
+  );
+  const canSubmit = password.length >= 6 && match && !submitting;
 
   if (loading) {
     return (
@@ -33,7 +41,7 @@ export function ResetPasswordPage() {
       setError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
-    if (password !== confirm) {
+    if (!match) {
       setError('As senhas não coincidem.');
       return;
     }
@@ -52,11 +60,14 @@ export function ResetPasswordPage() {
     }
   }
 
+  const confirmStatus =
+    confirm.length === 0 ? 'default' : match ? 'ok' : 'error';
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
       <div className="mb-8 text-center">
         <p className="font-display text-4xl font-bold text-brand">SISFIN</p>
-        <p className="mt-2 text-muted">Defina sua nova senha.</p>
+        <p className="mt-2 text-muted">Defina sua nova senha com segurança.</p>
       </div>
 
       <form
@@ -69,31 +80,33 @@ export function ResetPasswordPage() {
           </p>
         ) : null}
 
-        <Input
+        <PasswordInput
           label="Nova senha"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}
+          placeholder="Crie uma nova senha"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="Mínimo de 6 caracteres"
         />
-        <Input
+        <PasswordInput
           label="Confirmar nova senha"
-          type="password"
           autoComplete="new-password"
           required
           minLength={6}
+          placeholder="Digite a senha novamente"
           value={confirm}
+          status={confirmStatus}
           onChange={(e) => setConfirm(e.target.value)}
         />
+
+        <PasswordHints password={password} confirm={confirm} />
 
         {error ? (
           <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={submitting}>
+        <Button type="submit" className="w-full" disabled={!canSubmit}>
           {submitting ? 'Salvando…' : 'Salvar nova senha'}
         </Button>
 
