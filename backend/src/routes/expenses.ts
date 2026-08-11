@@ -19,15 +19,35 @@ router.get('/', requireAuth, async (req, res) => {
     return;
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('expenses')
     .select(
-      'id, description, amount, expense_date, year_month, notes, category_id, categories(id, name, color, icon)'
+      'id, description, amount, expense_date, year_month, notes, category_id, recurring_id, categories(id, name, color, icon)'
     )
     .eq('user_id', user.id)
     .eq('year_month', parsed.data)
     .order('expense_date', { ascending: false })
     .order('created_at', { ascending: false });
+
+  const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : '';
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const from = typeof req.query.from === 'string' ? req.query.from : '';
+  const to = typeof req.query.to === 'string' ? req.query.to : '';
+
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+  if (from) {
+    query = query.gte('expense_date', from);
+  }
+  if (to) {
+    query = query.lte('expense_date', to);
+  }
+  if (q) {
+    query = query.ilike('description', `%${q}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     res.status(500).json({ error: error.message });
@@ -43,6 +63,7 @@ router.get('/', requireAuth, async (req, res) => {
       yearMonth: e.year_month,
       notes: e.notes,
       categoryId: e.category_id,
+      recurringId: e.recurring_id ?? null,
       category: e.categories,
     })),
   });

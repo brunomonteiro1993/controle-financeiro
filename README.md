@@ -14,23 +14,26 @@ Cada usuário só enxerga os próprios dados (RLS no Supabase + JWT validado na 
 
 ## Funcionalidades
 
-- Cadastro / login (Supabase Auth)
-- Recuperação de senha por e-mail
-- Renda mensal por competência (`YYYY-MM`)
-- CRUD de gastos com categorias
-- Painel com saldo, % da renda usada, pizza por categoria e últimos lançamentos
+- Cadastro / login / recuperação de senha (Supabase Auth)
+- Receitas flexíveis (salário, freelance, 13º, vendas…)
+- CRUD de gastos com filtros, busca e exportação CSV/PDF
+- Metas por categoria com alertas
+- Gastos recorrentes (geração automática no mês)
+- Painel com saldo, % da renda, pizza e alertas
+- Tema claro/escuro + PWA (atalho no celular)
 - Navegação por mês
 
 ## 1. Supabase
 
 1. Crie um projeto no [Supabase](https://supabase.com).
-2. Em **SQL Editor**, execute o arquivo `supabase/schema.sql`.
-3. Em **Authentication → Providers**, deixe Email habilitado.
-4. (Opcional) Em **Authentication → Settings**, desative “Confirm email” para testes locais.
-5. Em **Authentication → URL Configuration**, adicione nas **Redirect URLs**:
+2. Em **SQL Editor**, execute `supabase/schema.sql`.
+3. Se o projeto já existia antes da v2, execute também `supabase/migration_v2.sql`.
+4. Em **Authentication → Providers**, deixe Email habilitado.
+5. (Opcional) Em **Authentication → Settings**, desative “Confirm email” para testes locais.
+6. Em **Authentication → URL Configuration**, adicione nas **Redirect URLs**:
    - `http://localhost:5173/redefinir-senha`
    - `https://SEU-APP.vercel.app/redefinir-senha` (após o deploy)
-6. Copie em **Settings → API**:
+7. Copie em **Settings → API**:
    - Project URL
    - `anon` / publishable key
    - `service_role` / secret key (somente no backend — **nunca** no frontend)

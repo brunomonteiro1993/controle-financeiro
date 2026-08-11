@@ -16,6 +16,19 @@
   --color-ok: #047857;
 }
 
+html.dark {
+  --color-ink: #e8f2ef;
+  --color-muted: #9bb0aa;
+  --color-paper: #15221f;
+  --color-surface: #1a2a26;
+  --color-line: #2d403b;
+  --color-brand: #2dd4bf;
+  --color-brand-soft: #134e4a;
+  --color-accent: #fb923c;
+  --color-danger: #f87171;
+  --color-ok: #34d399;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -31,10 +44,11 @@ body {
   font-family: var(--font-sans);
   color: var(--color-ink);
   background:
-    radial-gradient(1200px 600px at 10% -10%, #d8f3ec 0%, transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, #fde8d8 0%, transparent 50%),
-    linear-gradient(180deg, #f7fbf9 0%, #eef4f1 100%);
+    radial-gradient(1200px 600px at 10% -10%, color-mix(in oklab, var(--color-brand-soft) 80%, transparent) 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, color-mix(in oklab, var(--color-accent) 18%, transparent) 0%, transparent 50%),
+    linear-gradient(180deg, var(--color-paper) 0%, color-mix(in oklab, var(--color-paper) 70%, var(--color-line)) 100%);
   -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 button,
@@ -42,4 +56,11 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

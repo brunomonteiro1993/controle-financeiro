@@ -17,7 +17,7 @@ const tones = {
 
 export function StatCard({ title, value, hint, icon, tone = 'default' }: Props) {
   return (
-    <article className="rounded-2xl border border-line bg-white/90 p-5 shadow-sm shadow-teal-900/5">
+    <article className="rounded-2xl border border-line bg-surface/90 p-5 shadow-sm shadow-teal-900/5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-muted">{title}</p>
         {icon ? (

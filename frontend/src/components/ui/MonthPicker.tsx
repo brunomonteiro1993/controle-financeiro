@@ -9,7 +9,7 @@ type Props = {
 
 export function MonthPicker({ yearMonth, onChange }: Props) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-2xl border border-line bg-white/80 p-1 shadow-sm">
+    <div className="inline-flex items-center gap-1 rounded-2xl border border-line bg-surface/80 p-1 shadow-sm">
       <Button
         type="button"
         variant="ghost"

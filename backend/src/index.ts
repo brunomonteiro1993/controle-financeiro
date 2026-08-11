@@ -2,10 +2,12 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
+import budgetsRouter from './routes/budgets.js';
 import categoriesRouter from './routes/categories.js';
 import dashboardRouter from './routes/dashboard.js';
 import expensesRouter from './routes/expenses.js';
 import incomesRouter from './routes/incomes.js';
+import recurringRouter from './routes/recurring.js';
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/incomes', incomesRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/budgets', budgetsRouter);
+app.use('/api/recurring', recurringRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Rota não encontrada.' });
