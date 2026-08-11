@@ -17,9 +17,13 @@ type AuthContextValue = {
   user: User | null;
   profile: AppUser | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (fullName: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  clearPasswordRecovery: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -28,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const loadProfile = useCallback(async (activeSession: Session | null) => {
     if (!activeSession) {
@@ -58,9 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+      if (event === 'SIGNED_OUT') {
+        setIsPasswordRecovery(false);
+      }
       setSession(next);
-      loadProfile(next);
+      void loadProfile(next);
     });
 
     return () => {
@@ -92,6 +103,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     setProfile(null);
+    setIsPasswordRecovery(false);
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    const redirectTo = `${window.location.origin}/redefinir-senha`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => {
+    setIsPasswordRecovery(false);
   }, []);
 
   const value = useMemo(
@@ -100,11 +129,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile,
       loading,
+      isPasswordRecovery,
       signIn,
       signUp,
       signOut,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
     }),
-    [session, profile, loading, signIn, signUp, signOut]
+    [
+      session,
+      profile,
+      loading,
+      isPasswordRecovery,
+      signIn,
+      signUp,
+      signOut,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
